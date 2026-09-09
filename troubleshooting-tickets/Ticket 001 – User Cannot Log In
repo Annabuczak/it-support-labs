@@ -1,0 +1,22 @@
+# Ticket 001 – User Cannot Log In
+
+**Category:** User Account / Authentication  
+**Environment:** Windows 11 VM  
+**Status:** Resolved
+
+## Issue
+User reported that they could not complete the normal Windows login process.
+
+## Investigation
+I opened Local Users and Groups using `lusrmgr.msc` and checked the user's account properties.
+
+The account was configured with **User must change password at next logon**.
+
+## Resolution
+The user signed in with their existing credentials and was prompted to create a new password.
+
+## Verification
+The password change completed successfully and the user was able to access Windows.
+
+## What I Learned
+A login problem does not automatically mean that the password needs to be reset. Checking the account configuration first can identify the actual cause and avoid unnecessary changes.
