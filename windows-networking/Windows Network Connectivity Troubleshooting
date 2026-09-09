@@ -1,0 +1,373 @@
+# Lab 05 — Windows Network Connectivity Troubleshooting
+
+## Objective
+
+The purpose of this lab was to practise a structured Service Desk approach to diagnosing Windows network connectivity problems.
+
+The lab covered IPv4 addressing, subnet masks, default gateways, DHCP, DNS, MAC addresses, ARP, APIPA, loopback testing, private/public addressing and NAT.
+
+Testing was performed using a Windows 11 virtual machine running in Oracle VirtualBox using NAT networking.
+
+---
+
+## Service Desk Ticket
+
+**Ticket ID:** INC-005  
+**Category:** Network / Connectivity  
+**Priority:** P3 — Normal  
+**Status:** Resolved  
+**Environment:** Windows 11 VM / Oracle VirtualBox NAT
+
+### User Report
+
+> User reports that their Windows workstation may have a network connectivity issue and requires confirmation that local networking, gateway connectivity, external IP connectivity and DNS are functioning correctly.
+
+### Initial Troubleshooting Plan
+
+Rather than assuming the cause, I tested connectivity progressively:
+
+**1. Verify network configuration**  
+**2. Verify local TCP/IP operation**  
+**3. Verify default gateway connectivity**  
+**4. Verify external IP connectivity**  
+**5. Verify DNS resolution**
+
+This approach allows the point of failure to be isolated systematically.
+
+---
+
+# Investigation
+
+## 1. Network Configuration
+
+Command:
+
+`ipconfig /all`
+
+I reviewed the network adapter configuration, including:
+
+- IPv4 address
+- Subnet mask
+- Default gateway
+- DHCP configuration
+- DNS servers
+- Physical/MAC address
+
+The VM was using private IPv4 addressing on the VirtualBox NAT network.
+
+The subnet mask determines which portion of an IPv4 address represents the network and which represents the host.
+
+For example:
+
+`255.255.255.0 = /24`
+
+With a `/24` network, the first 24 bits represent the network prefix.
+
+### Troubleshooting relevance
+
+An address in the `169.254.x.x` range would indicate APIPA and would immediately lead me to investigate why the client had not obtained its expected automatic IPv4 configuration.
+
+**Evidence:**  
+`01-ipconfig-all.png`
+
+---
+
+## 2. Loopback Test
+
+Command:
+
+`ping 127.0.0.1`
+
+`127.0.0.1` is the IPv4 loopback address, also known as localhost.
+
+The test was successful.
+
+### Result
+
+**PASS**
+
+This confirmed that TCP/IP communication was functioning locally within the Windows VM.
+
+It does not prove that the physical/virtual network connection, gateway, internet or DNS is functioning.
+
+**Evidence:**  
+`02-loopback-ping.png`
+
+---
+
+## 3. Default Gateway Test
+
+The VirtualBox NAT gateway was:
+
+`10.0.2.2`
+
+Command:
+
+`ping 10.0.2.2`
+
+Results:
+
+`Packets Sent: 4`  
+`Packets Received: 4`  
+`Packet Loss: 0%`
+
+### Result
+
+**PASS**
+
+This demonstrated successful IP communication between the Windows VM and its local VirtualBox NAT gateway.
+
+At this point I had evidence that local connectivity to the next-hop gateway was functioning.
+
+**Evidence:**  
+`03-gateway-ping.png`
+
+---
+
+## 4. External IP Connectivity Test
+
+Command:
+
+`ping 8.8.8.8`
+
+Results:
+
+`Packets Sent: 4`  
+`Packets Received: 4`  
+`Packet Loss: 0%`
+
+Observed latency:
+
+`Minimum: 12 ms`  
+`Maximum: 19 ms`  
+`Average: 15 ms`
+
+### Result
+
+**PASS**
+
+This demonstrated that the VM could communicate with an external IP destination beyond its local gateway.
+
+Because an IP address was used directly, this test did not depend on DNS name resolution.
+
+**Evidence:**  
+`04-external-ip-ping.png`
+
+---
+
+## 5. DNS Resolution Test
+
+Command:
+
+`nslookup google.com`
+
+Purpose:
+
+To verify that the configured DNS service could resolve a hostname to an IP address.
+
+### Result
+
+**PASS — if successful output is captured**
+
+Successful resolution demonstrates that DNS name resolution is functioning.
+
+If external IP connectivity worked but this test failed, DNS configuration or DNS service availability would become a primary area of investigation.
+
+**Evidence:**  
+`05-nslookup-google.png`
+
+---
+
+## 6. MAC Address Inspection
+
+Commands:
+
+`getmac`
+
+`ipconfig /all`
+
+The MAC address identifies a network interface at the data-link layer and is used for local frame delivery.
+
+I confirmed the distinction between:
+
+**IP address** — logical network-layer addressing
+
+**MAC address** — link-layer interface addressing
+
+**Evidence:**  
+`06-mac-address.png`
+
+---
+
+## 7. ARP Cache Inspection
+
+Command:
+
+`arp -a`
+
+ARP maps local IPv4 addresses to MAC addresses.
+
+When communicating with another device on the same IPv4 subnet, ARP can be used to discover the destination interface's MAC address.
+
+For destinations outside the subnet, the client does not ARP for the remote internet server. The local Ethernet frame is instead sent towards the next-hop/default gateway.
+
+**Evidence:**  
+`07-arp-cache.png`
+
+---
+
+# Private and Public Addressing
+
+I reviewed the three RFC 1918 private IPv4 ranges:
+
+`10.0.0.0/8`
+
+`172.16.0.0/12`
+
+`192.168.0.0/16`
+
+The VirtualBox `10.0.2.x` network therefore uses private addressing.
+
+Private addresses are not directly routed across the public internet.
+
+NAT allows privately addressed devices to communicate with external networks through address translation.
+
+---
+
+# VirtualBox NAT
+
+The lab VM used Oracle VirtualBox NAT networking.
+
+Simplified traffic flow:
+
+`Windows 11 VM`
+
+↓
+
+`Private VirtualBox network`
+
+↓
+
+`10.0.2.2 NAT gateway`
+
+↓
+
+`Host/network`
+
+↓
+
+`Internet`
+
+The successful gateway and external-IP tests demonstrated that traffic could pass from the VM through the VirtualBox NAT environment to an external network.
+
+---
+
+# Troubleshooting Decision Tree
+
+For a future Service Desk connectivity ticket I would use the following process:
+
+### `ipconfig /all`
+
+Check IP configuration.
+
+If `169.254.x.x` appears:
+
+→ Investigate DHCP/network connectivity.
+
+### `ping 127.0.0.1`
+
+If unsuccessful:
+
+→ Investigate local TCP/IP configuration.
+
+### `ping <default gateway>`
+
+If unsuccessful:
+
+→ Investigate local network configuration/connectivity or gateway reachability.
+
+### `ping <external IP>`
+
+If gateway succeeds but external IP fails:
+
+→ Investigate routing, upstream connectivity or filtering.
+
+### `nslookup <hostname>`
+
+If external IP works but hostname resolution fails:
+
+→ Investigate DNS.
+
+---
+
+# Resolution
+
+Testing confirmed:
+
+**Local TCP/IP:** PASS  
+**Gateway connectivity:** PASS  
+**External IP connectivity:** PASS  
+**Packet loss during external test:** 0%  
+**DNS resolution:** PASS once verified with `nslookup`
+
+No connectivity fault was identified during testing.
+
+The network path was successfully validated from the Windows VM through the VirtualBox NAT gateway to an external IP destination.
+
+---
+
+# Commands Used
+
+`ipconfig`
+
+`ipconfig /all`
+
+`ping 127.0.0.1`
+
+`ping 10.0.2.2`
+
+`ping 8.8.8.8`
+
+`nslookup google.com`
+
+`getmac`
+
+`arp -a`
+
+Additional troubleshooting commands reviewed:
+
+`ipconfig /flushdns`
+
+`ipconfig /release`
+
+`ipconfig /renew`
+
+---
+
+# Skills Demonstrated
+
+- Windows network troubleshooting
+- IPv4 configuration
+- Subnet mask interpretation
+- Default gateway troubleshooting
+- DHCP and APIPA recognition
+- DNS troubleshooting
+- ICMP/ping testing
+- MAC address identification
+- ARP inspection
+- Private and public IPv4 addressing
+- NAT concepts
+- VirtualBox networking
+- Structured Service Desk fault isolation
+
+---
+
+## Key Learning
+
+The most important lesson from this lab was to troubleshoot network problems **in stages rather than guessing the cause**.
+
+My standard approach is:
+
+> **Configuration → Local → Gateway → External IP → DNS**
+
+Each successful test rules out part of the network path and helps narrow down where a fault is occurring.
