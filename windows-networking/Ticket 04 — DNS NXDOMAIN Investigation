@@ -1,0 +1,80 @@
+# Ticket 02 — DNS NXDOMAIN Investigation
+
+## User Issue
+
+A user reports that a particular website or hostname cannot be accessed.
+
+Other websites may still be working.
+
+The aim of this investigation was to understand the difference between a DNS failure and a DNS server successfully reporting that a hostname does not exist.
+
+## DNS Test
+
+I deliberately queried a hostname that does not exist:
+
+nslookup this-domain-definitely-does-not-exist-987654.com
+
+The DNS server returned:
+
+Non-existent domain
+
+![NXDOMAIN command prompt](screenshots/ticket-02-nxdomain-nslookup.png)
+
+At first this could look like DNS has failed.
+
+However, the DNS server actually received the request and responded correctly.
+
+The response means that the requested hostname could not be found.
+
+## Wireshark Investigation
+
+I captured the request using the Wireshark display filter:
+
+dns
+
+The client sent the DNS query from:
+
+10.0.2.15
+
+to the DNS server:
+
+192.168.0.1
+
+The next packet contained the DNS response.
+
+Wireshark showed:
+
+No such name
+
+![NXDOMAIN Wireshark response](screenshots/ticket-02-nxdomain-wireshark.png)
+
+This is an NXDOMAIN response.
+
+NXDOMAIN means that the DNS server received and processed the query but could not find the requested domain name.
+
+## Troubleshooting
+
+An NXDOMAIN response is different from a DNS timeout.
+
+The DNS server is responding, so I would not immediately assume that the network connection or DNS server itself was unavailable.
+
+For a real service desk ticket I would check:
+
+- whether the hostname was entered correctly
+- whether the website/domain actually exists
+- whether an internal company hostname requires connection to the corporate network or VPN
+- whether the DNS record has recently been changed or removed
+
+## What I Learned
+
+NXDOMAIN does not mean that DNS is unavailable.
+
+The important distinction is:
+
+Query → DNS response containing an IP address = successful resolution
+
+Query → DNS response containing NXDOMAIN = DNS responded, but the hostname does not exist
+
+Query → no DNS response = possible DNS server or network connectivity problem
+
+Wireshark made this distinction much clearer because I could see both the request and the response rather than relying only on the error displayed by the application.
