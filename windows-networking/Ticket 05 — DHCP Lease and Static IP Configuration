@@ -1,0 +1,211 @@
+# Ticket 05 — DHCP Lease and Static IP Configuration
+
+## Objective
+
+Investigate how DHCP assigns IPv4 network configuration, practise releasing and renewing a DHCP lease, and compare dynamically assigned addressing with a manually configured static IP address.
+
+## Lab Environment
+
+- Windows 11 virtual machine
+- Oracle VirtualBox NAT networking
+- Windows Command Prompt
+- Intel PRO/1000 MT Desktop Adapter
+
+## Working DHCP Configuration
+
+I started by recording the working network configuration using:
+
+ipconfig /all
+
+The Ethernet adapter showed:
+
+DHCP Enabled: Yes  
+IPv4 Address: 10.0.2.15  
+Subnet Mask: 255.255.255.0  
+Default Gateway: 10.0.2.2  
+DHCP Server: 10.0.2.2  
+DNS Server: 192.168.0.1
+
+The output also showed when the DHCP lease was obtained and when it would expire.
+
+📸 **Screenshot — working DHCP configuration**
+
+## Understanding DHCP
+
+DHCP automatically provides devices with the network configuration they need.
+
+I learned the DORA process:
+
+Discover — the client looks for a DHCP server.
+
+Offer — a DHCP server offers network configuration to the client.
+
+Request — the client requests the offered address.
+
+Acknowledge — the DHCP server confirms the lease.
+
+This means a user normally does not need to manually configure an IP address when connecting to a DHCP-enabled network.
+
+## Releasing the DHCP Lease
+
+I deliberately released the current DHCP lease:
+
+ipconfig /release
+
+The VM gave up the IPv4 configuration it had received from DHCP and normal IPv4 network connectivity was lost.
+
+I confirmed the change using:
+
+ipconfig
+
+📸 **Screenshot — network configuration after ipconfig /release**
+
+This demonstrated that the IPv4 address was not permanently assigned to the computer. It had been leased by the DHCP server.
+
+## Renewing the DHCP Lease
+
+I then requested network configuration again:
+
+ipconfig /renew
+
+After the renewal completed, I checked:
+
+ipconfig /all
+
+The VM again had valid IPv4 configuration.
+
+I verified external connectivity using:
+
+ping 8.8.8.8
+
+Connectivity was restored.
+
+📸 **Screenshot — renewed DHCP configuration**
+
+## Static IP Configuration
+
+I then changed the Ethernet adapter from automatic DHCP configuration to a manually configured static IPv4 address.
+
+I used the known working values:
+
+IP address: 10.0.2.15  
+Subnet mask: 255.255.255.0  
+Default gateway: 10.0.2.2  
+DNS server: 192.168.0.1
+
+I checked the result using:
+
+ipconfig /all
+
+The important change was:
+
+DHCP Enabled: No
+
+📸 **Screenshot — static IPv4 configuration showing DHCP Enabled: No**
+
+I tested:
+
+ping 8.8.8.8
+
+nslookup bbc.co.uk
+
+Both tests succeeded.
+
+This demonstrated that a device can communicate normally using either DHCP or a correctly configured static IP address.
+
+## Incorrect Static IP Test
+
+I then deliberately changed the static IPv4 address from:
+
+10.0.2.15
+
+to:
+
+10.0.3.15
+
+while leaving the subnet mask, gateway and DNS configuration unchanged.
+
+I expected this configuration to cause a connectivity problem.
+
+However, when I tested the VM:
+
+ping 8.8.8.8
+
+nslookup bbc.co.uk
+
+both continued to work.
+
+Because the lab was running through VirtualBox NAT, this test did not reproduce the network failure I expected.
+
+I did not treat the configuration as a failed connection because the diagnostic evidence showed that connectivity was still working.
+
+I restored the adapter to:
+
+Obtain an IP address automatically
+
+and:
+
+Obtain DNS server address automatically
+
+## APIPA and DHCP Failure
+
+I also learned how to recognise a common DHCP problem.
+
+If a Windows computer configured for DHCP cannot obtain a valid IPv4 address, it may assign itself an APIPA address in the 169.254.x.x range.
+
+For example:
+
+IPv4 Address: 169.254.34.19  
+Default Gateway: blank
+
+This would immediately make me investigate DHCP or the device's connection to the network.
+
+It does not automatically prove that the DHCP server itself is broken. Possible causes could include the local network adapter, Wi-Fi/Ethernet connection, network path or DHCP service.
+
+## Useful Commands
+
+ipconfig /all
+
+Shows the full IP configuration, including DHCP status, DHCP server, IP address, gateway, DNS servers and lease information.
+
+ipconfig /release
+
+Releases the current DHCP IPv4 lease.
+
+ipconfig /renew
+
+Requests DHCP configuration.
+
+ping 8.8.8.8
+
+Tests external IP connectivity without relying on DNS.
+
+nslookup bbc.co.uk
+
+Tests DNS name resolution.
+
+## Troubleshooting Lessons
+
+A DHCP lease provides a device with network configuration for a defined period rather than permanently assigning the address.
+
+Releasing a DHCP lease can remove the IPv4 configuration and interrupt connectivity.
+
+Renewing the lease requests valid configuration from DHCP again.
+
+`DHCP Enabled: Yes` means the adapter is configured to obtain its IPv4 configuration automatically.
+
+`DHCP Enabled: No` indicates that the IPv4 configuration has been manually configured.
+
+An address beginning with `169.254.x.x` is an important indicator that Windows has not successfully obtained normal IPv4 configuration through DHCP.
+
+Most importantly, I should trust the results of my diagnostic tests rather than assuming that a configuration change caused the expected problem.
+
+## What I Learned
+
+This lab helped me understand DHCP as a practical network service rather than simply memorising the DORA process.
+
+I released and renewed a DHCP lease, observed the effect on connectivity, configured a static IPv4 address and compared dynamic and static addressing.
+
+I also learned to associate an APIPA address with a possible DHCP or network connectivity problem.
+
+For Service Desk troubleshooting, I would use `ipconfig /all` to inspect the configuration first, interpret the evidence, investigate the cause, restore valid configuration and verify connectivity before closing the ticket.
