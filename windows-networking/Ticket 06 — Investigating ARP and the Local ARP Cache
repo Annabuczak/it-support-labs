@@ -1,0 +1,119 @@
+# Ticket 06 — Investigating ARP and the Local ARP Cache
+
+## Objective
+
+Use Windows networking tools to examine the ARP cache and understand how IPv4 addresses are mapped to MAC addresses on a local network.
+
+## Lab Environment
+
+- Windows 11 virtual machine
+- Oracle VirtualBox NAT networking
+- Command Prompt
+- VM IPv4 address: 10.0.2.15
+- Default gateway: 10.0.2.2
+
+## Checking the ARP Cache
+
+I opened Command Prompt and ran:
+
+arp -a
+
+The output displayed the ARP entries known by the Windows VM.
+
+One of the important entries was:
+
+Internet Address: 10.0.2.2  
+Physical Address: 52-54-00-12-35-00  
+Type: dynamic
+
+📸 **Screenshot — `arp -a` output showing the gateway mapping**
+
+## Interpreting the Result
+
+The VM's default gateway is:
+
+10.0.2.2
+
+The ARP table showed that Windows had associated this IPv4 address with the MAC address:
+
+52-54-00-12-35-00
+
+This demonstrated the main purpose of ARP:
+
+IP address → MAC address
+
+The entry was shown as `dynamic`, meaning that Windows had learned the mapping dynamically rather than it being permanently configured.
+
+## How ARP Works
+
+When a device needs to communicate with another IPv4 device on the local network but does not know its MAC address, it can send an ARP request.
+
+Conceptually:
+
+ARP Request:
+
+"Who has 10.0.2.2?"
+
+The device using that IPv4 address can respond with an ARP reply containing its MAC address.
+
+Windows can then temporarily store the IP-to-MAC mapping in its ARP cache so that it does not need to repeat the discovery process for every packet.
+
+The command:
+
+arp -a
+
+allows me to inspect these cached mappings.
+
+## ARP and the Default Gateway
+
+I also learned that ARP behaves differently depending on whether the destination is local or remote.
+
+If the destination is on the same subnet, the computer needs the MAC address of that local destination.
+
+If the destination is on another network, the computer sends the Ethernet frame towards its default gateway.
+
+For example, if my VM wants to communicate with:
+
+8.8.8.8
+
+it does not need to discover the MAC address of 8.8.8.8.
+
+Instead, because 8.8.8.8 is outside the VM's local subnet, the VM needs the MAC address of its default gateway, 10.0.2.2.
+
+This links together:
+
+Subnet → Default Gateway → ARP → MAC Address
+
+## Wireshark Observation
+
+I attempted to capture the VM's ARP request and reply using Wireshark.
+
+Wireshark was successfully capturing traffic on my main Windows host, but I could not obtain the expected ARP capture from the Windows VM while it was using VirtualBox NAT networking.
+
+Rather than treating the absence of a capture as evidence of an ARP failure, I used the successful `arp -a` output as evidence that the VM had a dynamic IP-to-MAC mapping for its virtual gateway.
+
+This was also a useful troubleshooting lesson: lab environments and virtual networking can behave differently from a normal physical LAN.
+
+## Useful Command
+
+arp -a
+
+Displays the current ARP cache, including known IPv4-to-MAC address mappings.
+
+## Troubleshooting Lessons
+
+ARP operates at the local network level and helps a device determine the MAC address needed for Ethernet communication.
+
+An ARP table can help confirm which MAC address Windows currently associates with a local IPv4 address.
+
+For traffic leaving the local subnet, the computer needs the MAC address of the next local hop, normally the default gateway, rather than the MAC address of the final remote Internet destination.
+
+I should also avoid assuming that a missing Wireshark capture proves that a protocol is not working. The capture interface, virtual networking configuration and location of the capture all matter.
+
+## What I Learned
+
+This lab helped me connect IPv4 addressing with Ethernet and MAC addressing.
+
+I now understand the purpose of an ARP request, ARP reply and ARP cache, and I can use `arp -a` to inspect IP-to-MAC mappings in Windows.
+
+Most importantly, I understand that when a destination is outside the local subnet, ARP is used to resolve the local next hop rather than the remote destination itself.
