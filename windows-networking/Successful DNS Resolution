@@ -1,0 +1,71 @@
+# Ticket 02 — Successful DNS Resolution
+
+## User Issue
+
+A user reports that they are having problems accessing websites.
+
+The first step is to determine whether the problem is with the internet connection itself or with DNS name resolution.
+
+## Initial Troubleshooting
+
+I would first check the current network configuration:
+
+ipconfig /all
+
+I would check the IPv4 address, default gateway, DHCP status and configured DNS server.
+
+I would then test external connectivity:
+
+ping 1.1.1.1
+
+If this works, the computer can reach an external IP address without relying on DNS.
+
+The next step is to test DNS:
+
+nslookup bbc.co.uk
+
+## DNS Test
+
+I ran:
+
+nslookup bbc.co.uk
+
+The DNS server successfully resolved the hostname and returned several IPv4 and IPv6 addresses.
+
+This confirmed that DNS name resolution was working.
+
+![Successful nslookup](screenshots/ticket-01-nslookup-success.png)
+
+## Wireshark Investigation
+
+I captured the DNS traffic in Wireshark using the display filter:
+
+dns
+
+I identified the DNS query and its corresponding response.
+
+The query was sent from the client to the DNS server asking for the IP address associated with the hostname.
+
+The response contained valid IP addresses, confirming successful DNS resolution.
+
+![DNS query](screenshots/ticket-01-dns-query.png)
+
+![DNS response](screenshots/ticket-01-dns-response.png)
+
+During another DNS exchange I investigated packets 508 and 510.
+
+Packet 508 contained the DNS query and Wireshark identified packet 510 as its corresponding response.
+
+The response contained several CNAME records before eventually returning IPv4 A records.
+
+This helped me understand that a hostname does not always point directly to an IP address. DNS may follow a chain of aliases before reaching the final address.
+
+## What I Learned
+
+DNS translates hostnames into IP addresses that computers can use to establish connections.
+
+A successful DNS exchange contains both a query and a response.
+
+If a user can reach an external IP address and DNS successfully resolves hostnames, DNS is unlikely to be the cause of the website problem.
+
+Wireshark allows me to go beyond the result shown by nslookup and inspect the actual DNS request and response at packet level.
