@@ -1,0 +1,189 @@
+# Ticket 01 — Website Access and DNS Troubleshooting
+
+### Objective
+
+The aim of this ticket was to practise troubleshooting a common service desk issue where a user reports that websites are not loading.
+
+I wanted to determine whether the problem was caused by the internet connection itself or by DNS name resolution.
+
+### Lab Environment
+
+- Windows 11 virtual machine
+- Oracle VirtualBox
+- Wireshark
+- Windows Command Prompt
+- VM IPv4 address: `10.0.2.15`
+
+### User Report
+
+The user reports:
+
+**“I am connected to the network, but websites are not loading.”**
+
+Rather than immediately restarting the router or changing network settings, I would first identify where the connection is failing.
+
+### Checking the Network Configuration
+
+I would first check the computer's current network configuration using:
+
+`ipconfig /all`
+
+I would check:
+
+- IPv4 address
+- Subnet mask
+- Default gateway
+- DHCP status
+- DNS server
+
+This helps establish whether the computer has received a valid network configuration.
+
+### Testing Internet Connectivity
+
+I would then test whether the computer can reach an external IP address:
+
+`ping 1.1.1.1`
+
+If this succeeds, the computer is able to communicate with an external IP address.
+
+This is important because this test does not require DNS.
+
+If the ping succeeds but websites still do not load, I would investigate DNS next.
+
+### Testing DNS
+
+I would test name resolution using:
+
+`nslookup bbc.co.uk`
+
+DNS translates a hostname such as:
+
+`bbc.co.uk`
+
+into an IP address that the computer can use to establish a connection.
+
+If `ping 1.1.1.1` works but `nslookup bbc.co.uk` fails, this strongly suggests a DNS problem rather than a complete loss of internet connectivity.
+
+### Troubleshooting DNS
+
+I would first clear the local DNS cache:
+
+`ipconfig /flushdns`
+
+I would then test `nslookup` again.
+
+If the problem continued, I could renew the DHCP configuration:
+
+`ipconfig /release`
+
+`ipconfig /renew`
+
+I would also check which DNS server the computer is configured to use.
+
+A useful additional test is:
+
+`nslookup bbc.co.uk 1.1.1.1`
+
+This sends the DNS request directly to Cloudflare's DNS resolver.
+
+If this works while the normal `nslookup bbc.co.uk` fails, it suggests that the configured DNS server may be the problem.
+
+On a corporate network I would not change the user's DNS server without checking company procedures, because internal services may depend on the organisation's DNS infrastructure.
+
+### Wireshark Investigation
+
+I also examined DNS traffic using Wireshark.
+
+I applied the display filter:
+
+`dns`
+
+I investigated packets **508 and 510**.
+
+Packet 508 showed the VM `10.0.2.15` sending a DNS query to the configured DNS resolver.
+
+The query requested an **A record**, which is used to resolve a hostname to an IPv4 address.
+
+Wireshark identified packet 510 as the corresponding response.
+
+This demonstrated the normal DNS request and response process:
+
+**Client → DNS query → DNS server → DNS response → Client**
+
+### Troubleshooting Logic
+
+**Websites not loading**
+
+↓  
+
+Check `ipconfig /all`
+
+↓
+
+Test `ping 1.1.1.1`
+
+**If it fails → investigate the network connection**
+
+**If it works → test DNS**
+
+↓
+
+`nslookup bbc.co.uk`
+
+**If it works → DNS is probably not the problem**
+
+**If it fails → investigate DNS**
+
+↓
+
+Flush DNS cache → renew DHCP → check configured DNS server → test another DNS resolver
+
+### Useful Commands
+
+Check network configuration:
+
+`ipconfig /all`
+
+Test external IP connectivity:
+
+`ping 1.1.1.1`
+
+Test DNS:
+
+`nslookup bbc.co.uk`
+
+Clear DNS cache:
+
+`ipconfig /flushdns`
+
+Renew DHCP configuration:
+
+`ipconfig /release`
+
+`ipconfig /renew`
+
+Test a specific DNS server:
+
+`nslookup bbc.co.uk 1.1.1.1`
+
+### Evidence Collected
+
+Wireshark DNS capture showing the DNS query and response.
+
+Packet 508 — DNS query from the client.
+
+Packet 510 — corresponding DNS response.
+
+The screenshots demonstrate how Wireshark can be used to inspect DNS communication at packet level.
+
+### What I Learned
+
+This ticket helped me understand that a user saying **“the internet isn't working”** does not necessarily mean that the internet connection itself has failed.
+
+Testing an external IP address separately from DNS allows me to narrow down the problem.
+
+If `ping 1.1.1.1` works but `nslookup` fails, I know that basic IP connectivity exists and DNS should be investigated.
+
+I also learned that Wireshark would not normally be my first troubleshooting tool for a basic service desk ticket. Windows tools such as `ipconfig`, `ping` and `nslookup` can identify many common network problems first.
+
+Wireshark becomes useful when deeper investigation is required because it allows me to see the actual DNS query leaving the computer and the response returning from the DNS server.
