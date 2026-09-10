@@ -1,0 +1,157 @@
+# Ticket 04 — DNS Failure: Websites Not Resolving
+
+## Objective
+
+Troubleshoot a simulated user report where the computer appears to have network connectivity, but DNS name resolution is not working.
+
+The goal was to identify the fault logically rather than immediately changing network settings.
+
+## Lab Environment
+
+- Windows 11 virtual machine
+- Oracle VirtualBox NAT networking
+- Windows Command Prompt
+- Wireshark
+- DHCP enabled
+
+Known working DNS configuration before the test:
+
+192.168.0.1
+
+To simulate the fault, I manually changed the DNS server to:
+
+192.0.2.1
+
+The IP address and default gateway were left unchanged.
+
+## User Report
+
+> "My computer says it is connected to the network, but websites aren't loading."
+
+I treated this as an unknown network problem and worked through the issue using diagnostic tests.
+
+## Testing External Connectivity
+
+I started by testing an external IP address:
+
+ping 8.8.8.8
+
+The ping succeeded.
+
+This showed that the computer could reach an external IP address, so the problem was unlikely to be a complete loss of internet connectivity.
+
+📸 **Screenshot — successful ping to 8.8.8.8**
+
+## Testing DNS
+
+I then tested hostname resolution:
+
+nslookup bbc.co.uk
+
+The request timed out.
+
+This was an important result because external IP connectivity worked, but DNS name resolution did not.
+
+At this point DNS became the main suspect.
+
+📸 **Screenshot — nslookup bbc.co.uk timing out**
+
+## Clearing the DNS Cache
+
+I tried:
+
+ipconfig /flushdns
+
+The DNS resolver cache was cleared successfully.
+
+I tested again, but DNS resolution still failed.
+
+This showed that the problem was not simply caused by an old or incorrect cached DNS record.
+
+## Checking the Network Configuration
+
+I ran:
+
+ipconfig /all
+
+I checked the Ethernet adapter and found that the configured DNS server was:
+
+192.0.2.1
+
+This did not match the known working DNS configuration recorded before the test.
+
+The evidence now pointed to an incorrect or unreachable DNS server.
+
+📸 **Screenshot — ipconfig /all showing DNS server 192.0.2.1**
+
+## Wireshark Investigation
+
+I also inspected the DNS traffic in Wireshark.
+
+The DNS requests were being sent, but a successful DNS response was not returning.
+
+This supported the results from nslookup and provided packet-level evidence that DNS communication was failing.
+
+📸 **Screenshot — Wireshark showing failed DNS communication**
+
+## Resolution
+
+I opened the Ethernet adapter IPv4 properties and restored:
+
+Obtain DNS server address automatically
+
+I then checked the configuration again using:
+
+ipconfig /all
+
+The correct DNS configuration had been restored.
+
+## Verification
+
+I did not assume that correcting the setting meant the problem was fixed.
+
+I verified the connection using:
+
+ping 8.8.8.8
+
+nslookup bbc.co.uk
+
+ping bbc.co.uk
+
+External IP connectivity worked and DNS successfully resolved the hostname again.
+
+The issue was resolved.
+
+📸 **Screenshot — successful nslookup/ping after restoring DNS**
+
+## Troubleshooting Lessons
+
+A successful ping to an external IP address does not prove that DNS is working.
+
+If an external IP works but a hostname does not, DNS should be investigated.
+
+ipconfig /all is useful for checking which DNS server the computer is actually configured to use.
+
+ipconfig /flushdns clears the local DNS resolver cache, but it cannot fix an incorrect or unreachable DNS server.
+
+In a business environment I would not replace corporate DNS with a public DNS server without authorisation. I would check the expected configuration and follow company procedures or escalate if necessary.
+
+## What I Learned
+
+This lab helped me understand the difference between internet connectivity and DNS resolution.
+
+Instead of assuming that "websites don't work" means there is no internet connection, I used individual tests to narrow down the fault.
+
+The most useful evidence was:
+
+ping 8.8.8.8 = successful external IP connectivity
+
+nslookup bbc.co.uk = DNS timeout
+
+ipconfig /all = incorrect DNS server identified
+
+After restoring the DNS configuration, I verified the fix rather than assuming it had worked.
+
+This reinforced a troubleshooting process I can use on Service Desk:
+
+Identify the problem → test connectivity → isolate the failing component → check configuration → fix → verify → document
