@@ -1,0 +1,97 @@
+# Ticket 03 — DNS Request Timeout
+
+## User Issue
+
+A user reports that websites are not loading.
+
+Testing suggests that DNS requests are timing out rather than returning an answer.
+
+The aim of this investigation was to reproduce a DNS timeout and examine what it looks like in both Windows and Wireshark.
+
+## Creating the Test
+
+I tested DNS resolution using a deliberately non-responsive DNS destination:
+
+nslookup bbc.co.uk 192.0.2.1
+
+Instead of using the computer's normal DNS server, this command instructed nslookup to send the request to 192.0.2.1.
+
+The DNS request timed out.
+
+Windows retried the request several times before eventually displaying:
+
+Request to UnKnown timed-out
+
+![DNS timeout](screenshots/ticket-03-dns-timeout.png)
+
+## Wireshark Investigation
+
+I filtered the capture using:
+
+dns && ip.addr == 192.0.2.1
+
+This isolated the DNS traffic associated with the test.
+
+![DNS timeout Wireshark](screenshots/ticket-03-wireshark-timeout.png)
+
+I identified:
+
+Source:
+
+10.0.2.15
+
+Destination:
+
+192.0.2.1
+
+Query:
+
+bbc.co.uk
+
+Response:
+
+None
+
+The client repeatedly attempted to send the DNS request but no DNS response returned.
+
+This explains why nslookup eventually timed out.
+
+## Troubleshooting a Real Ticket
+
+If a user could reach an external IP address such as 1.1.1.1 but normal DNS requests timed out, I would investigate the DNS configuration.
+
+I could check the configured DNS server using:
+
+ipconfig /all
+
+I could clear the local DNS cache:
+
+ipconfig /flushdns
+
+If appropriate, I could renew the DHCP configuration:
+
+ipconfig /release
+
+ipconfig /renew
+
+I could then retest DNS using:
+
+nslookup bbc.co.uk
+
+If the problem continued, I would investigate whether the configured DNS server was reachable.
+
+On a corporate network I would follow the organisation's procedures rather than changing the computer to a public DNS server, because internal systems may rely on corporate DNS.
+
+If necessary, I would document the troubleshooting already completed and escalate the issue to the network or infrastructure team.
+
+## What I Learned
+
+A DNS timeout is different from an NXDOMAIN response.
+
+With NXDOMAIN, the DNS server responds and tells the client that the requested hostname does not exist.
+
+With a timeout, the client sends the DNS request but receives no response.
+
+Wireshark allowed me to see the repeated DNS queries leaving the computer and confirm that no corresponding responses were returning.
+
+This demonstrated how packet capture can provide additional evidence when standard troubleshooting tools show that a DNS request is timing out.
