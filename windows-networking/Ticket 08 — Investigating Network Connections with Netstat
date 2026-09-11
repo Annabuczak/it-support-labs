@@ -1,0 +1,264 @@
+# Ticket 08 — Investigating Network Connections with Netstat
+
+## Objective
+
+Use the Windows `netstat` command to examine active network connections, identify listening ports and TCP connection states, and link network activity to the Windows process responsible for it.
+
+---
+
+## Lab Environment
+
+- Windows 11 virtual machine
+- Oracle VirtualBox
+- Command Prompt
+
+---
+
+## Checking Active Network Connections
+
+I started by running:
+
+netstat
+
+This displayed the active TCP connections on the Windows VM.
+
+The output included:
+
+- Protocol
+- Local Address
+- Foreign Address
+- TCP State
+
+📸 **Screenshot — Basic netstat output**
+
+The output contained both loopback connections and external network connections.
+
+One example showed:
+
+TCP   192.168.0.5:3837   208.103.161.17:https   ESTABLISHED
+
+The local address shows the IP address and temporary local port being used for the connection.
+
+The foreign address shows the remote endpoint.
+
+`https` indicates that the remote connection is using the HTTPS service, normally TCP port 443.
+
+`ESTABLISHED` means that an active TCP connection currently exists between the two endpoints.
+
+---
+
+## Identifying Loopback Connections
+
+The output also contained several connections using:
+
+127.0.0.1
+
+For example:
+
+127.0.0.1:49712
+
+I recognised `127.0.0.1` as the IPv4 loopback address.
+
+This means the communication is taking place internally within the Windows VM rather than being sent to another device across the network.
+
+---
+
+## Understanding TCP States
+
+I observed several TCP connection states.
+
+### ESTABLISHED
+
+An active TCP connection exists between the local and remote endpoints.
+
+### LISTENING
+
+A process is waiting for incoming TCP connections on a particular port.
+
+### CLOSE_WAIT
+
+The remote side has started closing the TCP connection, but the local application has not completely closed its side yet.
+
+An occasional `CLOSE_WAIT` entry does not automatically indicate a problem. However, a large number of persistent `CLOSE_WAIT` connections associated with one application could require further investigation.
+
+---
+
+## Using netstat -ano
+
+I then ran:
+
+netstat -ano
+
+📸 **Screenshot — netstat -ano showing listening ports and PIDs**
+
+The options mean:
+
+-a = Show active connections and listening ports
+
+-n = Display IP addresses and port numbers numerically
+
+-o = Display the Process ID (PID) associated with each connection
+
+This gave me more detailed information about the VM's network activity.
+
+---
+
+## Investigating a Listening Port
+
+One entry showed:
+
+TCP   0.0.0.0:445   0.0.0.0:0   LISTENING   4
+
+Port 445 is associated with SMB, which is used by Windows for services such as file and printer sharing.
+
+`LISTENING` means that a process is waiting for incoming connections on that port.
+
+In this context, `0.0.0.0` does not mean that the VM has no IP address.
+
+It indicates that the service is listening on applicable local IPv4 interfaces.
+
+---
+
+## Linking a Network Connection to a Process
+
+I identified an established loopback connection associated with PID 4408.
+
+I then ran:
+
+tasklist /FI "PID eq 4408"
+
+The result showed:
+
+WUDFHost.exe   PID 4408
+
+📸 **Screenshot — PID 4408 identified as WUDFHost.exe**
+
+This demonstrated how I can take a PID from `netstat -ano` and identify the Windows process responsible for that network activity.
+
+---
+
+## Filtering Established Connections
+
+Because `netstat -ano` produced a large amount of information, I filtered the results using:
+
+netstat -ano | findstr ESTABLISHED
+
+📸 **Screenshot — Established connections filtered using findstr**
+
+This removed much of the unnecessary output and displayed connections currently in the `ESTABLISHED` state.
+
+The results contained both loopback connections and connections to remote IP addresses.
+
+---
+
+## Investigating an External Connection
+
+I selected the following established connection:
+
+TCP   192.168.0.5:16722   52.110.3.66:443   ESTABLISHED   10504
+
+I broke the result down into:
+
+Protocol: TCP
+
+Local address: 192.168.0.5
+
+Local port: 16722
+
+Remote address: 52.110.3.66
+
+Remote port: 443
+
+State: ESTABLISHED
+
+PID: 10504
+
+Port `443` indicated an HTTPS connection.
+
+I then investigated which process owned PID 10504:
+
+tasklist /FI "PID eq 10504"
+
+The result was:
+
+explorer.exe   PID 10504
+
+📸 **Screenshot — PID 10504 identified as explorer.exe**
+
+This allowed me to trace network activity back to the Windows process associated with the connection.
+
+---
+
+## Troubleshooting Process
+
+The investigation followed this process:
+
+Network connection  
+↓  
+Local and remote IP addresses  
+↓  
+Local and remote ports  
+↓  
+TCP state  
+↓  
+PID  
+↓  
+Windows process
+
+This provides a practical method for investigating which processes are responsible for network activity on a Windows system.
+
+---
+
+## Useful Commands
+
+netstat
+
+Displays active network connections.
+
+netstat -ano
+
+Displays active connections, listening ports, numerical addresses and PIDs.
+
+netstat -ano | findstr ESTABLISHED
+
+Filters the output to show established TCP connections.
+
+tasklist /FI "PID eq <PID>"
+
+Identifies the Windows process associated with a particular PID.
+
+---
+
+## Troubleshooting Lessons
+
+`netstat` can help me understand what network activity is taking place on a Windows computer.
+
+An `ESTABLISHED` connection indicates an active TCP connection.
+
+A `LISTENING` entry indicates that a process is waiting for incoming connections.
+
+The local and foreign addresses identify the two endpoints involved in the connection.
+
+Port numbers can help identify the service being used.
+
+For example:
+
+443 → HTTPS
+
+445 → SMB
+
+The PID provides a link between network activity and a running Windows process.
+
+However, seeing an unfamiliar connection or process does not automatically mean that it is malicious or faulty. I would investigate the process and surrounding evidence before reaching a conclusion.
+
+---
+
+## What I Learned
+
+I learned how to use `netstat` inside my Windows VM to investigate active TCP connections and listening ports.
+
+I can identify loopback communication, external connections and TCP states including `ESTABLISHED`, `LISTENING` and `CLOSE_WAIT`.
+
+I also learned how to use `netstat -ano` to obtain the PID associated with a connection and then use `tasklist` to identify the Windows process.
+
+This gives me a practical troubleshooting workflow for moving from a network connection to the process responsible for it.
