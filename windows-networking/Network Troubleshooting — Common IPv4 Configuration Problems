@@ -1,0 +1,302 @@
+# Network Troubleshooting — Common IPv4 Configuration Problems
+
+## Objective
+
+Understand how common IPv4 configuration problems affect network connectivity and how I would identify and troubleshoot them using Windows networking tools.
+
+The main problems covered are:
+
+- No valid IP address
+- IP address conflict
+- Missing or incorrect default gateway
+- Incorrect subnet mask
+
+---
+
+## 1. No Valid IP Address Assigned
+
+If a device does not have a valid IPv4 address, it will not be able to communicate normally with other devices on the network.
+
+One of the first commands I would use is:
+
+ipconfig /all
+
+This allows me to check:
+
+- IPv4 address
+- Subnet mask
+- Default gateway
+- DHCP status
+- DHCP server
+- DNS server
+
+### APIPA Address
+
+If Windows is configured to use DHCP but cannot obtain normal IPv4 configuration, it may assign itself an APIPA address.
+
+APIPA addresses use the range:
+
+169.254.x.x
+
+If I see a `169.254.x.x` address, I would suspect an address-assignment/DHCP problem.
+
+### Possible Causes
+
+- DHCP server unavailable
+- DHCP server cannot be reached
+- Ethernet cable disconnected
+- Wi-Fi disconnected
+- Network adapter disabled
+- Incorrect VLAN or network connection
+- DHCP client/service problem
+
+### Troubleshooting
+
+First I would check the physical or wireless connection and confirm that the network adapter is enabled.
+
+I would then run:
+
+ipconfig /all
+
+If DHCP should be used, I would confirm:
+
+DHCP Enabled: Yes
+
+I could then attempt to obtain a new DHCP lease:
+
+ipconfig /release
+
+ipconfig /renew
+
+If the device still receives an APIPA address, I would continue investigating why it cannot reach or receive configuration from DHCP.
+
+### Key Troubleshooting Clue
+
+169.254.x.x → Think DHCP/address-assignment problem.
+
+---
+
+## 2. IP Address Conflict
+
+An IP address conflict occurs when two devices attempt to use the same IPv4 address on the same network.
+
+Each device needs a unique IP address.
+
+### Possible Causes
+
+- Duplicate manually configured static IP addresses
+- Static IP address overlapping with the DHCP address pool
+- Incorrect network configuration
+- Address management or DHCP configuration problem
+
+### Possible Symptoms
+
+- Intermittent network connectivity
+- Connection repeatedly dropping
+- Duplicate IP address warning
+- One or both devices unable to communicate reliably
+
+### Troubleshooting
+
+I would start with:
+
+ipconfig /all
+
+I would identify the current IPv4 address and determine whether the device is using DHCP or static addressing.
+
+If DHCP is being used, I could attempt to obtain a new lease:
+
+ipconfig /release
+
+ipconfig /renew
+
+If the address is statically configured, I would check the correct IP configuration against network documentation or a known-good configuration.
+
+I would not simply choose another random static IP because it could create another conflict.
+
+### Key Troubleshooting Clue
+
+Duplicate IP warning or unusual intermittent connectivity → Investigate an IP address conflict.
+
+---
+
+## 3. Missing or Incorrect Default Gateway
+
+The default gateway allows a device to send traffic to destinations outside its local subnet.
+
+For example:
+
+IP address: 192.168.1.50  
+Subnet mask: 255.255.255.0  
+Default gateway: 192.168.1.1
+
+If the default gateway is missing or incorrect, the computer may still communicate with devices on its own subnet but fail to reach other networks or the Internet.
+
+### Possible Symptoms
+
+Local network communication → Works
+
+External network communication → Fails
+
+### Possible Causes
+
+- Incorrect static configuration
+- Incorrect DHCP configuration
+- Missing gateway information
+- Gateway/router unavailable
+- Network path problem
+
+### Troubleshooting
+
+I would check the current configuration:
+
+ipconfig /all
+
+I would verify that a default gateway is present and that the address matches the expected network configuration.
+
+I could then test whether the gateway responds:
+
+ping <default-gateway>
+
+For example:
+
+ping 192.168.1.1
+
+If local communication works but the gateway cannot be reached, I would investigate the connection between the device and the gateway before troubleshooting DNS or applications.
+
+### Key Troubleshooting Clue
+
+Local subnet works but remote networks do not → Check the default gateway.
+
+---
+
+## 4. Incorrect Subnet Mask
+
+The subnet mask helps the computer determine which IPv4 addresses are on its local network and which destinations must be reached through a router/default gateway.
+
+For example:
+
+IP address: 192.168.1.50  
+Subnet mask: 255.255.255.0  
+Prefix: /24  
+Default gateway: 192.168.1.1
+
+With a `/24` subnet, devices using `192.168.1.x` would normally be considered part of the same subnet.
+
+If the subnet mask is incorrect, the computer can make the wrong decision about whether a destination is local or remote.
+
+### Possible Causes
+
+- Incorrect manual/static configuration
+- Incorrect DHCP configuration
+- Incorrect network settings
+
+### Possible Symptoms
+
+- Some network devices are reachable while others are not
+- Unexpected local connectivity problems
+- Traffic does not reach the expected default gateway
+- Communication behaves differently from other devices on the same network
+
+### Troubleshooting
+
+I would check:
+
+ipconfig /all
+
+I would compare the subnet mask with the expected network configuration or a known-good device on the same network.
+
+I would also check the IP address and default gateway because all three values need to make sense together.
+
+### Key Troubleshooting Clue
+
+Unexpected communication with local or remote destinations → Check the subnet mask and overall IP configuration.
+
+---
+
+## Useful Commands
+
+ipconfig
+
+Displays basic IP configuration.
+
+ipconfig /all
+
+Displays detailed network configuration including IPv4 address, subnet mask, default gateway, DHCP and DNS information.
+
+ipconfig /release
+
+Releases the current DHCP lease.
+
+ipconfig /renew
+
+Requests a new DHCP lease.
+
+ping 127.0.0.1
+
+Tests the local TCP/IP stack.
+
+ping <default-gateway>
+
+Tests connectivity to the local gateway.
+
+ping 8.8.8.8
+
+Can help determine whether external IP connectivity is working without relying on DNS.
+
+---
+
+## Troubleshooting Approach
+
+When investigating an IPv4 connectivity problem, I would avoid immediately assuming that DNS or the Internet is down.
+
+I would work through the network logically:
+
+Physical/Wi-Fi connection  
+↓  
+Network adapter  
+↓  
+IP address  
+↓  
+Subnet mask  
+↓  
+Default gateway  
+↓  
+External IP connectivity  
+↓  
+DNS  
+↓  
+Application
+
+The results from each test determine what I investigate next.
+
+---
+
+## Quick Recognition
+
+169.254.x.x  
+→ APIPA / possible DHCP or address-assignment problem
+
+Duplicate IP warning  
+→ Possible IP address conflict
+
+Local network works but remote networks fail  
+→ Check default gateway
+
+Unexpected local vs remote connectivity  
+→ Check subnet mask
+
+No valid IPv4 configuration  
+→ Check adapter, connection and DHCP
+
+---
+
+## What I Learned
+
+I learned that checking an IP address alone is not enough when troubleshooting connectivity.
+
+The IPv4 address, subnet mask and default gateway work together to determine how a device communicates.
+
+I can use `ipconfig /all` to inspect the configuration and then use targeted tests such as `ping`, `ipconfig /release` and `ipconfig /renew` to narrow down the cause of a connectivity problem.
+
+I also learned to use symptoms to guide troubleshooting rather than changing network settings randomly.
