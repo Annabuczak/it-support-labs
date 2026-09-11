@@ -2,7 +2,7 @@
 
 ## Objective
 
-Use the Windows `netstat` command to examine active network connections, identify listening ports and TCP connection states, and link network activity to the Windows process responsible for it.
+Use the Windows `netstat` command to examine active network connections, listening ports, TCP connection states, routing information and the processes responsible for network activity.
 
 ---
 
@@ -20,7 +20,7 @@ I started by running:
 
 netstat
 
-This displayed the active TCP connections on the Windows VM.
+This displayed active TCP connections on the Windows VM.
 
 The output included:
 
@@ -31,17 +31,11 @@ The output included:
 
 📸 **Screenshot — Basic netstat output**
 
-The output contained both loopback connections and external network connections.
-
-One example showed:
+One connection showed:
 
 TCP   192.168.0.5:3837   208.103.161.17:https   ESTABLISHED
 
-The local address shows the IP address and temporary local port being used for the connection.
-
-The foreign address shows the remote endpoint.
-
-`https` indicates that the remote connection is using the HTTPS service, normally TCP port 443.
+This showed an active TCP connection between the system and a remote endpoint using HTTPS.
 
 `ESTABLISHED` means that an active TCP connection currently exists between the two endpoints.
 
@@ -49,23 +43,17 @@ The foreign address shows the remote endpoint.
 
 ## Identifying Loopback Connections
 
-The output also contained several connections using:
+The output also contained connections using:
 
 127.0.0.1
 
-For example:
-
-127.0.0.1:49712
-
 I recognised `127.0.0.1` as the IPv4 loopback address.
 
-This means the communication is taking place internally within the Windows VM rather than being sent to another device across the network.
+This means the communication is taking place internally within the Windows system rather than travelling across the network.
 
 ---
 
 ## Understanding TCP States
-
-I observed several TCP connection states.
 
 ### ESTABLISHED
 
@@ -79,7 +67,7 @@ A process is waiting for incoming TCP connections on a particular port.
 
 The remote side has started closing the TCP connection, but the local application has not completely closed its side yet.
 
-An occasional `CLOSE_WAIT` entry does not automatically indicate a problem. However, a large number of persistent `CLOSE_WAIT` connections associated with one application could require further investigation.
+An occasional `CLOSE_WAIT` does not automatically indicate a problem, but many persistent `CLOSE_WAIT` connections associated with one application could require investigation.
 
 ---
 
@@ -89,7 +77,7 @@ I then ran:
 
 netstat -ano
 
-📸 **Screenshot — netstat -ano showing listening ports and PIDs**
+📸 **Screenshot — netstat -ano showing connections, listening ports and PIDs**
 
 The options mean:
 
@@ -109,21 +97,21 @@ One entry showed:
 
 TCP   0.0.0.0:445   0.0.0.0:0   LISTENING   4
 
-Port 445 is associated with SMB, which is used by Windows for services such as file and printer sharing.
+Port 445 is associated with SMB, which is used by Windows for services including file and printer sharing.
 
 `LISTENING` means that a process is waiting for incoming connections on that port.
 
-In this context, `0.0.0.0` does not mean that the VM has no IP address.
+In this context, `0.0.0.0` does not mean that the computer has no IP address.
 
 It indicates that the service is listening on applicable local IPv4 interfaces.
 
 ---
 
-## Linking a Network Connection to a Process
+## Linking a Connection to a Process
 
 I identified an established loopback connection associated with PID 4408.
 
-I then ran:
+I ran:
 
 tasklist /FI "PID eq 4408"
 
@@ -133,7 +121,7 @@ WUDFHost.exe   PID 4408
 
 📸 **Screenshot — PID 4408 identified as WUDFHost.exe**
 
-This demonstrated how I can take a PID from `netstat -ano` and identify the Windows process responsible for that network activity.
+This demonstrated how a PID obtained from `netstat -ano` can be used to identify the Windows process associated with network activity.
 
 ---
 
@@ -145,19 +133,17 @@ netstat -ano | findstr ESTABLISHED
 
 📸 **Screenshot — Established connections filtered using findstr**
 
-This removed much of the unnecessary output and displayed connections currently in the `ESTABLISHED` state.
-
-The results contained both loopback connections and connections to remote IP addresses.
+This displayed connections currently in the `ESTABLISHED` state.
 
 ---
 
 ## Investigating an External Connection
 
-I selected the following established connection:
+I selected an established connection:
 
 TCP   192.168.0.5:16722   52.110.3.66:443   ESTABLISHED   10504
 
-I broke the result down into:
+I interpreted the result as:
 
 Protocol: TCP
 
@@ -175,25 +161,131 @@ PID: 10504
 
 Port `443` indicated an HTTPS connection.
 
-I then investigated which process owned PID 10504:
+I then ran:
 
 tasklist /FI "PID eq 10504"
 
-The result was:
+The result showed:
 
 explorer.exe   PID 10504
 
 📸 **Screenshot — PID 10504 identified as explorer.exe**
 
-This allowed me to trace network activity back to the Windows process associated with the connection.
+This demonstrated how I could move from network activity to the Windows process associated with it.
+
+---
+
+## Viewing the Routing Table with netstat -r
+
+Another useful `netstat` option is:
+
+netstat -r
+
+This displays the system's IP routing table.
+
+The routing table helps Windows decide where network traffic should be sent.
+
+Important information includes:
+
+- Network destination
+- Netmask
+- Gateway
+- Interface
+- Metric
+
+A particularly important route is:
+
+0.0.0.0    0.0.0.0    <default-gateway>
+
+`0.0.0.0/0` represents the **default route**.
+
+If Windows does not have a more specific route for a destination, it can use the default route and send the traffic towards the default gateway.
+
+This connects several networking concepts I have studied:
+
+Destination IP  
+↓  
+Check routing table  
+↓  
+Is destination local?  
+↓  
+If not, use appropriate route/default gateway  
+↓  
+ARP can resolve the local next-hop IPv4 address to a MAC address  
+↓  
+Send the Ethernet frame towards the next hop
+
+`netstat -r` could therefore be useful when troubleshooting situations where a device has valid IP configuration but traffic is not being routed as expected.
+
+---
+
+## Identifying Executables with netstat -b
+
+Another useful option is:
+
+netstat -b
+
+The `-b` option displays the executable associated with network connections and listening ports where Windows can determine it.
+
+This provides another way to investigate:
+
+Which program is responsible for this network activity?
+
+The executable may appear in brackets alongside the connection information.
+
+For example:
+
+[application.exe]
+
+TCP   <local-address>   <remote-address>:443   ESTABLISHED
+
+`netstat -b` normally requires an elevated Command Prompt and may take longer to produce its output.
+
+This is related to the investigation I performed using:
+
+netstat -ano
+
+followed by:
+
+tasklist /FI "PID eq <PID>"
+
+The two approaches provide different ways of identifying the process or executable associated with network activity.
+
+---
+
+## Comparing Useful Netstat Commands
+
+netstat
+
+Shows active network connections.
+
+netstat -ano
+
+Shows active connections, listening ports, numerical addresses and PIDs.
+
+netstat -ano | findstr ESTABLISHED
+
+Filters the results to active established TCP connections.
+
+netstat -r
+
+Displays the IP routing table.
+
+netstat -b
+
+Displays the executable associated with network connections where available.
+
+tasklist /FI "PID eq <PID>"
+
+Identifies the process associated with a PID obtained from `netstat -ano`.
 
 ---
 
 ## Troubleshooting Process
 
-The investigation followed this process:
+A network connection can be investigated using:
 
-Network connection  
+Connection  
 ↓  
 Local and remote IP addresses  
 ↓  
@@ -203,41 +295,33 @@ TCP state
 ↓  
 PID  
 ↓  
-Windows process
+Process / executable
 
-This provides a practical method for investigating which processes are responsible for network activity on a Windows system.
+For routing problems:
 
----
+Destination  
+↓  
+Routing table  
+↓  
+Route / default route  
+↓  
+Gateway  
+↓  
+Interface
 
-## Useful Commands
-
-netstat
-
-Displays active network connections.
-
-netstat -ano
-
-Displays active connections, listening ports, numerical addresses and PIDs.
-
-netstat -ano | findstr ESTABLISHED
-
-Filters the output to show established TCP connections.
-
-tasklist /FI "PID eq <PID>"
-
-Identifies the Windows process associated with a particular PID.
+This means `netstat` can help investigate both active network communication and how Windows decides where traffic should be sent.
 
 ---
 
 ## Troubleshooting Lessons
 
-`netstat` can help me understand what network activity is taking place on a Windows computer.
+`netstat` can help identify what network connections exist on a Windows system and which applications or processes are associated with them.
 
-An `ESTABLISHED` connection indicates an active TCP connection.
+`ESTABLISHED` indicates an active TCP connection.
 
-A `LISTENING` entry indicates that a process is waiting for incoming connections.
+`LISTENING` indicates that a process is waiting for incoming connections.
 
-The local and foreign addresses identify the two endpoints involved in the connection.
+The local and foreign addresses identify the endpoints involved in a connection.
 
 Port numbers can help identify the service being used.
 
@@ -247,18 +331,24 @@ For example:
 
 445 → SMB
 
-The PID provides a link between network activity and a running Windows process.
+`netstat -ano` can associate connections with PIDs.
 
-However, seeing an unfamiliar connection or process does not automatically mean that it is malicious or faulty. I would investigate the process and surrounding evidence before reaching a conclusion.
+`netstat -b` can help identify the executable associated with network activity.
+
+`netstat -r` can be used to inspect the routing table when investigating routing or gateway problems.
+
+An unfamiliar connection does not automatically mean that it is malicious. `netstat` provides evidence that should be combined with other troubleshooting information before reaching a conclusion.
 
 ---
 
 ## What I Learned
 
-I learned how to use `netstat` inside my Windows VM to investigate active TCP connections and listening ports.
+I learned how to use `netstat` to investigate network activity on a Windows system.
 
-I can identify loopback communication, external connections and TCP states including `ESTABLISHED`, `LISTENING` and `CLOSE_WAIT`.
+I can identify active connections, listening ports, loopback traffic and TCP connection states.
 
-I also learned how to use `netstat -ano` to obtain the PID associated with a connection and then use `tasklist` to identify the Windows process.
+I can use `netstat -ano` to identify the PID responsible for a connection and use `tasklist` to identify the associated process.
 
-This gives me a practical troubleshooting workflow for moving from a network connection to the process responsible for it.
+I also learned that `netstat -b` can help identify executables associated with network connections, while `netstat -r` displays the routing table used by Windows to determine where network traffic should be sent.
+
+Together, these commands give me several ways to investigate connectivity, routing, ports and application network activity during Windows troubleshooting.
