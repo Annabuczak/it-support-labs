@@ -1,0 +1,57 @@
+# Ticket 09 — Mapping a Shared Network Drive
+
+## What I Did
+
+I created a folder called `SharedDriveLab` inside my existing `C:\BUCZAKLAB` environment and configured it as a shared folder.
+
+When Windows prompted me about Network Discovery and File Sharing, I enabled sharing for the private network rather than enabling it for public networks.
+
+I then mapped the shared folder as drive `K:`.
+
+The UNC path for the share was:
+
+`\\BUCZAKLAB-PC02\SharedDriveLab`
+
+After mapping it, Windows displayed the drive under **This PC → Network locations** as:
+
+`SharedDriveLab (\\BUCZAKLAB-PC02) (K:)`
+
+## UNC Paths and Mapped Drives
+
+I learned that a network share can be accessed using a UNC (Universal Naming Convention) path:
+
+`\\ComputerName\ShareName`
+
+Mapping the share gives that network location a drive letter such as `K:`, making it easier for the user to access through File Explorer.
+
+## Command-Line Management
+
+Mapped drives can also be viewed and managed from Command Prompt.
+
+View current mappings:
+
+`net use`
+
+Map the shared drive:
+
+`net use K: \\BUCZAKLAB-PC02\SharedDriveLab`
+
+Remove the mapping:
+
+`net use K: /delete`
+
+## Service Desk Relevance
+
+This lab helped me understand what a user means when they report that their shared drive has disappeared or that they cannot access a mapped drive.
+
+A mapped drive such as `K:` is not necessarily a physical disk. It can simply be a drive letter pointing to a network share.
+
+If a user reported a missing shared drive, `net use` would be a useful check to see whether the mapping exists and which UNC path it is connected to.
+
+Possible causes of mapped-drive problems include the mapping itself, network connectivity, permissions or the shared resource being unavailable.
+
+## What I Learned
+
+I learned the difference between sharing a folder and mapping a drive. Sharing makes the folder available as a network resource, while mapping gives that resource a convenient drive letter on the user's computer.
+
+I also gained practical experience with UNC paths, Windows file sharing, mapped network drives and the `net use` command.
