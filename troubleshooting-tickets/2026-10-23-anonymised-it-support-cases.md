@@ -1,4 +1,4 @@
-# Anonymised IT Support Troubleshooting Cases — Week Ending 23 October 2026
+# IT Support Case Studies — Week Ending 23 October 2026
 
 **Purpose:** Sanitised practical troubleshooting notes suitable for adaptation into public GitHub issues. No customer names, organisation names, personal details, email addresses, domains, tenant IDs, private URLs or real ticket numbers included.
 
